@@ -1,26 +1,166 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background: #f5f7f6;
     margin: 0;
-    padding: 20px;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
     color: #222;
 }
 
-.container {
-    max-width: 800px;
-    margin: auto;
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
+header {
+    background: #14532d;
+    color: white;
+    text-align: center;
+    padding: 25px 15px;
 }
 
-h1 {
-    text-align: center;
+header h1 {
+    margin: 0 0 10px;
+}
+
+header p {
+    margin: 0;
+}
+
+main {
+    width: 95%;
+    max-width: 900px;
+    margin: 20px auto;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.card h2 {
+    margin-top: 0;
+    color: #14532d;
+}
+
+input {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
 }
 
 button {
-    padding: 10px 18px;
+    background: #c9a227;
+    color: white;
     border: none;
-    border-radius: 6px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 16px;
     cursor: pointer;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat {
+    background: white;
+    text-align: center;
+    padding: 20px 10px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.stat h3 {
+    font-size: 30px;
+    margin: 0;
+    color: #14532d;
+}
+
+.stat p {
+    margin-bottom: 0;
+}
+
+.progress {
+    width: 100%;
+    height: 25px;
+    background: #ddd;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+#progressBar {
+    width: 0%;
+    height: 100%;
+    background: #c9a227;
+    transition: width 0.3s;
+}
+
+#progressText {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.task {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #f7f7f7;
+    border-radius: 8px;
+}
+
+.task-name {
+    flex: 1;
+    font-size: 16px;
+}
+
+.task.completed .task-name {
+    text-decoration: line-through;
+    color: #777;
+}
+
+.delete-btn {
+    background: #b91c1c;
+    padding: 8px 12px;
+}
+
+.complete-btn {
+    background: #14532d;
+    padding: 8px 12px;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+@media (max-width: 600px) {
+
+    .stats {
+        grid-template-columns: 1fr;
+    }
+
+    .task {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    button {
+        width: 100%;
+    }
 }
