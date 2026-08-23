@@ -88,12 +88,8 @@ function displayTasks() {
 
         const nameDiv = document.createElement("div");
         nameDiv.className = "task-name";
-        nameDiv.textContent = task.name; // تعيين كنص لحماية من XSS
-
-        // عنصر التاريخ
-        const dateDiv = document.createElement("div");
-        dateDiv.className = "task-date";
-        dateDiv.textContent = task.createdAt ? `تاريخ الإضافة: ${formatDate(task.createdAt)}` : "";
+        // عرض التاريخ أمام اسم المهمة (التنسيق العربي)
+        nameDiv.textContent = task.createdAt ? ` ${formatDate(task.createdAt)} — ${task.name}` : task.name; // تعيين كنص لحماية من XSS
 
         const buttonsWrap = document.createElement("div");
         buttonsWrap.style.display = "flex";
@@ -115,7 +111,6 @@ function displayTasks() {
         buttonsWrap.appendChild(deleteBtn);
 
         taskDiv.appendChild(nameDiv);
-        taskDiv.appendChild(dateDiv);
         taskDiv.appendChild(buttonsWrap);
 
         taskListEl.appendChild(taskDiv);
