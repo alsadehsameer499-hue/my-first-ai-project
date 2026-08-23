@@ -1,8 +1,8 @@
 // قائمة الأعمال — نسخة محسّنة: لا نستخدم innerHTML أو onclick، ونمنع مهام مكررة
 let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
 
-// تأكد من أن معرفات المهام أرقام بعد التحميل
-tasks = tasks.map(t => ({ ...t, id: Number(t.id) }));
+// تأكد من أن معرفات المهام أرقام بعد التحميل، واحفظ تاريخ الإنشاء إن لم يكن موجوداً
+tasks = tasks.map(t => ({ ...t, id: Number(t.id), createdAt: t.createdAt || new Date(Number(t.id)).toISOString() }));
 
 // عناصر DOM مخزنة للسرعة
 let taskListEl, inputEl, addBtnEl;
@@ -52,10 +52,13 @@ function addTask() {
         return;
     }
 
+    const nowIso = new Date().toISOString();
+
     const task = {
         id: Date.now(),
         name: taskName,
-        completed: false
+        completed: false,
+        createdAt: nowIso
     };
 
     tasks.push(task);
@@ -87,6 +90,11 @@ function displayTasks() {
         nameDiv.className = "task-name";
         nameDiv.textContent = task.name; // تعيين كنص لحماية من XSS
 
+        // عنصر التاريخ
+        const dateDiv = document.createElement("div");
+        dateDiv.className = "task-date";
+        dateDiv.textContent = task.createdAt ? `تاريخ الإضافة: ${formatDate(task.createdAt)}` : "";
+
         const buttonsWrap = document.createElement("div");
         buttonsWrap.style.display = "flex";
         buttonsWrap.style.gap = "8px";
@@ -107,6 +115,7 @@ function displayTasks() {
         buttonsWrap.appendChild(deleteBtn);
 
         taskDiv.appendChild(nameDiv);
+        taskDiv.appendChild(dateDiv);
         taskDiv.appendChild(buttonsWrap);
 
         taskListEl.appendChild(taskDiv);
@@ -159,4 +168,15 @@ function updateStatistics() {
 // حفظ البيانات
 function saveTasks() {
     localStorage.setItem("tasks", JSON.stringify(tasks));
+}
+
+// مساعدة: تنسيق التاريخ للعرض (عربي)
+function formatDate(iso) {
+    if (!iso) return "";
+    try {
+        const d = new Date(iso);
+        return d.toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+    } catch (e) {
+        return iso;
+    }
 }
