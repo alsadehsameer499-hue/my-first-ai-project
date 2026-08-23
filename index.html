@@ -35,6 +35,39 @@
         </section>
 
 
+        <!-- أدوات متقدمة: بحث، تصفية، ترتيب، تصدير/استيراد -->
+        <section class="card">
+            <h2>أدوات</h2>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <input id="searchInput" type="search" placeholder="ابحث عن مهمة..." aria-label="بحث">
+
+                <label for="filterSelect">حالة:</label>
+                <select id="filterSelect">
+                    <option value="all">الكل</option>
+                    <option value="pending">قيد التنفيذ</option>
+                    <option value="completed">منجزة</option>
+                </select>
+
+                <label for="sortSelect">ترتيب:</label>
+                <select id="sortSelect">
+                    <option value="date_desc">الأحدث أولاً</option>
+                    <option value="date_asc">الأقدم أولاً</option>
+                    <option value="name_asc">اسم (أ-ي)</option>
+                    <option value="name_desc">اسم (ي-أ)</option>
+                </select>
+
+                <button id="markAllBtn">وضع كل المهام كمنجزة</button>
+                <button id="clearCompletedBtn">مسح المنجزة</button>
+                <button id="exportBtn">تصدير JSON</button>
+                <label class="import-label" for="importFile">استيراد</label>
+                <input id="importFile" type="file" accept="application/json" style="display:none">
+            </div>
+
+            <p style="margin-top:10px;color:#555;font-size:14px">نصيحة: استخدم التصدير لعمل نسخة احتياطية أو النقل إلى جهاز آخر.</p>
+        </section>
+
+
         <!-- الإحصائيات -->
         <section class="stats">
 
