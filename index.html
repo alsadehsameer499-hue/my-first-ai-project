@@ -3,49 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>نظام متابعة الأعمال</title>
+
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <h1>نظام متابعة الأعمال</h1>
+    <header>
+        <h1>📋 نظام متابعة الأعمال</h1>
+        <p>متابعة الأعمال والمهام والإنجازات</p>
+    </header>
 
-    <p>متابعة الأعمال والمهام والإنجازات</p>
+    <main>
 
-    <section>
-        <h2>إضافة متابعة جديدة</h2>
+        <!-- إضافة مهمة -->
+        <section class="card">
 
-        <input id="title" type="text" placeholder="موضوع المتابعة">
+            <h2>إضافة عمل جديد</h2>
 
-        <input id="responsible" type="text" placeholder="المسؤول">
+            <input
+                type="text"
+                id="taskInput"
+                placeholder="اكتب اسم العمل أو المهمة"
+            >
 
-        <input id="date" type="date">
+            <button onclick="addTask()">
+                إضافة العمل
+            </button>
 
-        <select id="status">
-            <option value="new">جديد</option>
-            <option value="progress">قيد المتابعة</option>
-            <option value="completed">مكتمل</option>
-            <option value="late">متأخر</option>
-        </select>
+        </section>
 
-        <button id="save-btn">حفظ المتابعة</button>
-    </section>
-    <section>
-        <h2>المتابعات المسجلة</h2>
 
-        <table border="1" width="100%">
-            <thead>
-                <tr>
-                    <th>موضوع المتابعة</th>
-                    <th>المسؤول</th>
-                    <th>التاريخ</th>
-                    <th>الحالة</th>
-                </tr>
-            </thead>
+        <!-- الإحصائيات -->
+        <section class="stats">
 
-            <tbody id="followups-list">
-            </tbody>
-        </table>
-    </section>
-<script src="app.js"></script>
+            <div class="stat">
+                <h3 id="totalTasks">0</h3>
+                <p>إجمالي الأعمال</p>
+            </div>
+
+            <div class="stat">
+                <h3 id="completedTasks">0</h3>
+                <p>الأعمال المنجزة</p>
+            </div>
+
+            <div class="stat">
+                <h3 id="pendingTasks">0</h3>
+                <p>الأعمال المتبقية</p>
+            </div>
+
+        </section>
+
+
+        <!-- نسبة الإنجاز -->
+        <section class="card">
+
+            <h2>نسبة الإنجاز</h2>
+
+            <div class="progress">
+                <div id="progressBar"></div>
+            </div>
+
+            <p id="progressText">0%</p>
+
+        </section>
+
+
+        <!-- قائمة الأعمال -->
+        <section class="card">
+
+            <h2>الأعمال والمهام</h2>
+
+            <div id="taskList"></div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+        <p>نظام متابعة الأعمال © 2026</p>
+    </footer>
+
+
+    <script src="script.js"></script>
+
 </body>
+</html>
