@@ -1,375 +1,388 @@
-// تحسين قائمة الأعمال: بحث، فلترة، فرز، تصدير/استيراد، تحرير، تراجع حذف
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-tasks = tasks.map(t => ({ ...t, id: Number(t.id), createdAt: t.createdAt || new Date(Number(t.id)).toISOString() }));
+/* script.js - logic for tasks app: localStorage, export/import, DnD, search/filter/sort, notifications */
+(() => {
+  const STORAGE_KEY = 'tasks_v1';
+  // DOM
+  const taskForm = document.getElementById('taskForm');
+  const titleEl = document.getElementById('taskTitle');
+  const descEl = document.getElementById('taskDesc');
+  const dueEl = document.getElementById('taskDue');
+  const timeEl = document.getElementById('taskTime');
+  const priorityEl = document.getElementById('taskPriority');
+  const tagsEl = document.getElementById('taskTags');
+  const addBtn = document.getElementById('addTaskBtn');
+  const cancelEditBtn = document.getElementById('cancelEditBtn');
+  const taskList = document.getElementById('taskList');
+  const emptyHint = document.getElementById('emptyHint');
+  const totalTasks = document.getElementById('totalTasks');
+  const completedTasks = document.getElementById('completedTasks');
+  const pendingTasks = document.getElementById('pendingTasks');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  const exportBtn = document.getElementById('exportBtn');
+  const importFile = document.getElementById('importFile');
+  const searchInput = document.getElementById('searchInput');
+  const filterSelect = document.getElementById('filterSelect');
+  const sortSelect = document.getElementById('sortSelect');
+  const markAllBtn = document.getElementById('markAllBtn');
+  const clearCompletedBtn = document.getElementById('clearCompletedBtn');
 
-// DOM
-let taskListEl, inputEl, addBtnEl;
-let searchInputEl, filterSelectEl, sortSelectEl, markAllBtnEl, clearCompletedBtnEl, exportBtnEl, importFileEl;
+  let tasks = [];
+  let editingId = null;
+  let dragSrcId = null;
 
-let lastDeleted = null;
-let undoTimeoutId = null;
-const UNDO_TIMEOUT = 5000; // ms
+  // utilities
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  const parseDateTime = (d, t) => {
+    if (!d) return null;
+    return t ? new Date(d + 'T' + t) : new Date(d);
+  };
 
-document.addEventListener("DOMContentLoaded", function () {
-    taskListEl = document.getElementById("taskList");
-    inputEl = document.getElementById("taskInput");
-    addBtnEl = document.getElementById("addTaskBtn");
-
-    // أدوات جديدة
-    searchInputEl = document.getElementById("searchInput");
-    filterSelectEl = document.getElementById("filterSelect");
-    sortSelectEl = document.getElementById("sortSelect");
-    markAllBtnEl = document.getElementById("markAllBtn");
-    clearCompletedBtnEl = document.getElementById("clearCompletedBtn");
-    exportBtnEl = document.getElementById("exportBtn");
-    importFileEl = document.getElementById("importFile");
-
-    // ربط الأحداث الأساسية
-    addBtnEl.addEventListener("click", addTask);
-    inputEl.addEventListener("keydown", function (e) { if (e.key === "Enter") addTask(); });
-
-    // ربط أدوات البحث/فلترة/فرز
-    if (searchInputEl) {
-        let debounceTimer;
-        searchInputEl.addEventListener("input", function () {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                applyFiltersAndDisplay();
-            }, 250);
-        });
-    }
-    if (filterSelectEl) filterSelectEl.addEventListener("change", applyFiltersAndDisplay);
-    if (sortSelectEl) sortSelectEl.addEventListener("change", applyFiltersAndDisplay);
-
-    // أزرار العمليات الجماعية
-    if (markAllBtnEl) markAllBtnEl.addEventListener("click", markAllCompleted);
-    if (clearCompletedBtnEl) clearCompletedBtnEl.addEventListener("click", clearCompleted);
-
-    // تصدير/استيراد
-    if (exportBtnEl) exportBtnEl.addEventListener("click", exportTasks);
-    if (importFileEl) importFileEl.addEventListener("change", importTasksFromFile);
-
-    // تفويض حدث لأزرار داخل قائمة المهام
-    taskListEl.addEventListener("click", function (e) {
-        const btn = e.target.closest("button");
-        if (!btn) return;
-        const id = Number(btn.dataset.id);
-        if (btn.classList.contains("complete-btn")) {
-            toggleTask(id);
-        } else if (btn.classList.contains("delete-btn")) {
-            deleteTask(id);
-        } else if (btn.classList.contains("edit-btn")) {
-            editTask(id);
-        }
-    });
-
-    applyFiltersAndDisplay();
-    updateStatistics();
-});
-
-// إضافة مهمة
-function addTask() {
-    const taskName = inputEl.value.trim();
-    if (taskName === "") { alert("اكتب اسم العمل أولاً"); return; }
-
-    if (tasks.some(t => t.name.toLowerCase() === taskName.toLowerCase())) {
-        alert("المهمة موجودة بالفعل");
-        return;
-    }
-
-    const nowIso = new Date().toISOString();
-    const task = { id: Date.now(), name: taskName, completed: false, createdAt: nowIso };
-
-    tasks.push(task);
-    saveTasks();
-
-    inputEl.value = "";
-    applyFiltersAndDisplay();
-    updateStatistics();
-}
-
-// تطبيق الفلترة والفرز ثم العرض
-function applyFiltersAndDisplay() {
-    let visible = tasks.slice();
-
-    // بحث
-    const q = (searchInputEl && searchInputEl.value || "").trim().toLowerCase();
-    if (q) visible = visible.filter(t => t.name.toLowerCase().includes(q));
-
-    // فلترة
-    const filter = (filterSelectEl && filterSelectEl.value) || "all";
-    if (filter === "pending") visible = visible.filter(t => !t.completed);
-    if (filter === "completed") visible = visible.filter(t => t.completed);
-
-    // فرز
-    const sort = (sortSelectEl && sortSelectEl.value) || "date_desc";
-    if (sort === "date_desc") visible.sort((a, b) => b.id - a.id);
-    else if (sort === "date_asc") visible.sort((a, b) => a.id - b.id);
-    else if (sort === "name_asc") visible.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-    else if (sort === "name_desc") visible.sort((a, b) => b.name.localeCompare(a.name, 'ar'));
-
-    displayTasks(visible);
-}
-
-// عرض الأعمال (يمكن استقبال قائمة مرشحة)
-function displayTasks(list = tasks) {
-    taskListEl.innerHTML = "";
-
-    if (list.length === 0) {
-        const p = document.createElement("p");
-        p.textContent = "لا توجد أعمال مضافة حتى الآن.";
-        taskListEl.appendChild(p);
-        return;
-    }
-
-    list.forEach(function (task) {
-        const taskDiv = document.createElement("div");
-        taskDiv.className = "task";
-        if (task.completed) taskDiv.classList.add("completed");
-
-        const nameDiv = document.createElement("div");
-        nameDiv.className = "task-name";
-        nameDiv.textContent = task.createdAt ? ` ${formatDate(task.createdAt)} — ${task.name}` : task.name;
-
-        const buttonsWrap = document.createElement("div");
-        buttonsWrap.style.display = "flex";
-        buttonsWrap.style.gap = "8px";
-
-        const completeBtn = document.createElement("button");
-        completeBtn.className = "complete-btn";
-        completeBtn.dataset.id = task.id;
-        completeBtn.textContent = task.completed ? "إلغاء الإنجاز" : "إنجاز";
-        completeBtn.setAttribute('aria-label', task.completed ? 'إلغاء إنجاز المهمة' : 'وضع المهمة كمنجزة');
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "edit-btn";
-        editBtn.dataset.id = task.id;
-        editBtn.textContent = "تعديل";
-        editBtn.setAttribute('aria-label', 'تعديل المهمة');
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.className = "delete-btn";
-        deleteBtn.dataset.id = task.id;
-        deleteBtn.textContent = "حذف";
-        deleteBtn.setAttribute('aria-label', 'حذف المهمة');
-
-        buttonsWrap.appendChild(completeBtn);
-        buttonsWrap.appendChild(editBtn);
-        buttonsWrap.appendChild(deleteBtn);
-
-        taskDiv.appendChild(nameDiv);
-        taskDiv.appendChild(buttonsWrap);
-
-        taskListEl.appendChild(taskDiv);
-    });
-}
-
-// تبديل حالة المهمة
-function toggleTask(id) {
-    tasks = tasks.map(function (task) {
-        if (task.id === id) task.completed = !task.completed;
-        return task;
-    });
-    saveTasks();
-    applyFiltersAndDisplay();
-    updateStatistics();
-}
-
-// حذف المهمة مع دعم التراجع
-function deleteTask(id) {
-    const toDelete = tasks.find(t => t.id === id);
-    if (!toDelete) return;
-    if (!confirm("هل تريد حذف هذا العمل؟")) return;
-
-    lastDeleted = toDelete;
-    tasks = tasks.filter(t => t.id !== id);
-    saveTasks();
-    applyFiltersAndDisplay();
-    updateStatistics();
-    showUndoSnackbar("تم حذف المهمة", undoDelete);
-}
-
-// تراجع حذف
-function undoDelete() {
-    if (!lastDeleted) return;
-    tasks.push(lastDeleted);
-    // حافظ على ترتيب زمني: نعيد الفرز حسب id تنازلي
-    tasks.sort((a, b) => b.id - a.id);
-    saveTasks();
-    applyFiltersAndDisplay();
-    updateStatistics();
-    lastDeleted = null;
-    if (undoTimeoutId) { clearTimeout(undoTimeoutId); undoTimeoutId = null; }
-}
-
-// تحرير مهمة
-function editTask(id) {
-    const task = tasks.find(t => t.id === id);
-    if (!task) return;
-    const newName = prompt("عدل اسم المهمة:", task.name);
-    if (newName === null) return; // إلغاء
-    const trimmed = newName.trim();
-    if (trimmed === "") { alert("لا يمكن ترك الاسم فارغاً"); return; }
-    if (tasks.some(t => t.id !== id && t.name.toLowerCase() === trimmed.toLowerCase())) {
-        alert("مهمة بنفس الاسم موجودة بالفعل");
-        return;
-    }
-    task.name = trimmed;
-    saveTasks();
-    applyFiltersAndDisplay();
-    updateStatistics();
-}
-
-// وضع كل المهام كمنجزة
-function markAllCompleted() {
-    if (!confirm("هل تريد وضع كل المهام كمنجزة؟")) return;
-    tasks = tasks.map(t => ({ ...t, completed: true }));
-    saveTasks();
-    applyFiltersAndDisplay();
-    updateStatistics();
-}
-
-// مسح المنجزة
-function clearCompleted() {
-    if (!confirm("هل تريد حذف كل المهام المنجزة؟ هذا الإجراء لا يمكن التراجع عنه.")) return;
-    tasks = tasks.filter(t => !t.completed);
-    saveTasks();
-    applyFiltersAndDisplay();
-    updateStatistics();
-}
-
-// التصدير كـ JSON للتحميل
-function exportTasks() {
-    const dataStr = JSON.stringify(tasks, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
-    a.href = url;
-    a.download = `tasks-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-}
-
-// الاستيراد من ملف JSON (يُدمج مع تجنب التكرار)
-function importTasksFromFile(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function () {
-        try {
-            const imported = JSON.parse(reader.result);
-            if (!Array.isArray(imported)) throw new Error("ملف غير صالح");
-            let added = 0;
-            imported.forEach(item => {
-                if (!item.name) return;
-                const normalized = item.name.trim();
-                if (tasks.some(t => t.name.toLowerCase() === normalized.toLowerCase())) return;
-                const newTask = {
-                    id: item.id ? Number(item.id) : Date.now() + Math.floor(Math.random() * 1000),
-                    name: normalized,
-                    completed: !!item.completed,
-                    createdAt: item.createdAt || new Date().toISOString()
-                };
-                tasks.push(newTask);
-                added++;
-            });
-            if (added > 0) {
-                saveTasks();
-                applyFiltersAndDisplay();
-                updateStatistics();
-                alert(`تم إضافة ${added} مهمة من الملف.`);
-            } else {
-                alert("لم يتم إضافة مهام جديدة (قد تكون موجودة بالفعل).");
-            }
-        } catch (err) {
-            alert("خطأ في قراءة الملف. تأكد أنه JSON صالح وصيغة مصفوفة من المهام.");
-        } finally {
-            importFileEl.value = ""; // إعادة تعيين الحقل
-        }
-    };
-    reader.readAsText(file);
-}
-
-// حفظ في localStorage
-function saveTasks() {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-}
-
-// إحصائيات
-function updateStatistics() {
-    const total = tasks.length;
-    const completed = tasks.filter(t => t.completed).length;
-    const pending = total - completed;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    document.getElementById("totalTasks").textContent = total;
-    document.getElementById("completedTasks").textContent = completed;
-    document.getElementById("pendingTasks").textContent = pending;
-    document.getElementById("progressBar").style.width = percentage + "%";
-    document.getElementById("progressText").textContent = percentage + "%";
-}
-
-// تنسيق التاريخ
-function formatDate(iso) {
-    if (!iso) return "";
+  // storage
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }
+  function load() {
     try {
-        const d = new Date(iso);
-        return d.toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
-    } catch (e) {
-        return iso;
+      tasks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch {
+      tasks = [];
     }
-}
+  }
 
-// Snackbar لعرض تراجع الحذف
-function showUndoSnackbar(message, onUndo) {
-    // إزالة snackbar سابق إن وجد
-    const existing = document.getElementById("undo-snackbar");
-    if (existing) existing.remove();
+  // render
+  function render() {
+    // apply search/filter/sort
+    const q = (searchInput.value || '').trim().toLowerCase();
+    const filter = filterSelect.value;
+    const sort = sortSelect.value;
 
-    const sn = document.createElement("div");
-    sn.id = "undo-snackbar";
-    sn.style.position = "fixed";
-    sn.style.bottom = "20px";
-    sn.style.left = "50%";
-    sn.style.transform = "translateX(-50%)";
-    sn.style.background = "#333";
-    sn.style.color = "white";
-    sn.style.padding = "12px 16px";
-    sn.style.borderRadius = "8px";
-    sn.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
-    sn.style.display = "flex";
-    sn.style.gap = "12px";
-    sn.style.alignItems = "center";
-    sn.style.zIndex = 9999;
+    let list = tasks.slice();
 
-    const txt = document.createElement("span");
-    txt.textContent = message;
+    if (q) {
+      list = list.filter(t => (t.title + ' ' + (t.description||'') + ' ' + (t.tags||'')).toLowerCase().includes(q));
+    }
+    if (filter === 'pending') list = list.filter(t => !t.completed);
+    if (filter === 'completed') list = list.filter(t => t.completed);
+    if (filter === 'overdue') list = list.filter(t => t.due && !t.completed && new Date(t.due) < new Date());
 
-    const undoBtn = document.createElement("button");
-    undoBtn.textContent = "تراجع";
-    undoBtn.style.background = "#c9a227";
-    undoBtn.style.color = "#000";
-    undoBtn.style.border = "none";
-    undoBtn.style.padding = "6px 10px";
-    undoBtn.style.borderRadius = "6px";
-    undoBtn.style.cursor = "pointer";
-
-    undoBtn.addEventListener("click", function () {
-        if (onUndo) onUndo();
-        sn.remove();
+    // sort
+    list.sort((a,b) => {
+      if (sort === 'date_desc') return (b.createdAt||0) - (a.createdAt||0);
+      if (sort === 'date_asc') return (a.createdAt||0) - (b.createdAt||0);
+      if (sort === 'name_asc') return a.title.localeCompare(b.title);
+      if (sort === 'name_desc') return b.title.localeCompare(a.title);
+      if (sort === 'priority_desc') {
+        const rank = {high:3,medium:2,low:1};
+        return (rank[b.priority]||0) - (rank[a.priority]||0);
+      }
+      return 0;
     });
 
-    sn.appendChild(txt);
-    sn.appendChild(undoBtn);
-    document.body.appendChild(sn);
+    taskList.innerHTML = '';
+    if (list.length === 0) {
+      emptyHint.style.display = 'block';
+    } else {
+      emptyHint.style.display = 'none';
+    }
 
-    if (undoTimeoutId) clearTimeout(undoTimeoutId);
-    undoTimeoutId = setTimeout(function () {
-        sn.remove();
-        lastDeleted = null;
-        undoTimeoutId = null;
-    }, UNDO_TIMEOUT);
-}
+    for (const t of list) {
+      const item = document.createElement('div');
+      item.className = 'task-item' + (t.completed ? ' completed' : '') + ` priority-${t.priority||'medium'}`;
+      item.setAttribute('draggable', 'true');
+      item.dataset.id = t.id;
+
+      // drag handle
+      const drag = document.createElement('span');
+      drag.className = 'drag-handle';
+      drag.innerText = '⋮';
+      drag.title = 'اسحب لإعادة الترتيب';
+      item.appendChild(drag);
+
+      // checkbox
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!t.completed;
+      cb.setAttribute('aria-label', 'تحديد منجزة');
+      cb.addEventListener('change', () => {
+        t.completed = cb.checked;
+        t.updatedAt = Date.now();
+        save();
+        render();
+      });
+      item.appendChild(cb);
+
+      // main
+      const main = document.createElement('div');
+      main.className = 'task-main';
+
+      const title = document.createElement('div');
+      title.className = 'task-title';
+      title.innerText = t.title;
+      main.appendChild(title);
+
+      const meta = document.createElement('div');
+      meta.className = 'task-meta';
+      const due = t.due ? new Date(t.due) : null;
+      if (due) {
+        const dueSpan = document.createElement('span');
+        dueSpan.innerText = 'موعد: ' + due.toLocaleString();
+        meta.appendChild(dueSpan);
+      }
+      if (t.tags) {
+        const tags = t.tags.split(',').map(s => s.trim()).filter(Boolean);
+        for (const tg of tags) {
+          const el = document.createElement('span');
+          el.className = 'tag';
+          el.innerText = tg;
+          meta.appendChild(el);
+        }
+      }
+      if (t.description) {
+        const desc = document.createElement('div');
+        desc.className = 'muted';
+        desc.innerText = t.description;
+        main.appendChild(desc);
+      }
+      main.appendChild(meta);
+      item.appendChild(main);
+
+      // actions
+      const actions = document.createElement('div');
+      actions.className = 'controls';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'small-action secondary';
+      editBtn.innerText = 'تعديل';
+      editBtn.addEventListener('click', () => startEdit(t.id));
+      actions.appendChild(editBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'small-action danger';
+      delBtn.innerText = 'حذف';
+      delBtn.addEventListener('click', () => {
+        if (confirm('هل تريد حذف هذه المهمة؟')) {
+          tasks = tasks.filter(x => x.id !== t.id);
+          save();
+          render();
+        }
+      });
+      actions.appendChild(delBtn);
+
+      item.appendChild(actions);
+
+      // drag events
+      item.addEventListener('dragstart', (e) => {
+        dragSrcId = t.id;
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!dragSrcId || dragSrcId === t.id) return;
+        const srcIndex = tasks.findIndex(x => x.id === dragSrcId);
+        const dstIndex = tasks.findIndex(x => x.id === t.id);
+        if (srcIndex < 0 || dstIndex < 0) return;
+        const [moved] = tasks.splice(srcIndex, 1);
+        tasks.splice(dstIndex, 0, moved);
+        save();
+        render();
+      });
+
+      taskList.appendChild(item);
+    }
+
+    // stats
+    const total = tasks.length;
+    const done = tasks.filter(t=>t.completed).length;
+    const pending = total - done;
+    totalTasks.innerText = total;
+    completedTasks.innerText = done;
+    pendingTasks.innerText = pending;
+    const pct = total === 0 ? 0 : Math.round((done/total)*100);
+    progressBar.style.width = pct + '%';
+    progressText.innerText = pct + '%';
+    progressBar.parentElement.setAttribute('aria-valuenow', pct);
+  }
+
+  // create / edit
+  function startEdit(id) {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    editingId = id;
+    titleEl.value = t.title;
+    descEl.value = t.description || '';
+    dueEl.value = t.due ? new Date(t.due).toISOString().slice(0,10) : '';
+    timeEl.value = t.due ? new Date(t.due).toTimeString().slice(0,5) : '';
+    priorityEl.value = t.priority || 'medium';
+    tagsEl.value = t.tags || '';
+    addBtn.innerText = 'حفظ التعديل';
+    cancelEditBtn.hidden = false;
+  }
+
+  function resetForm() {
+    editingId = null;
+    taskForm.reset();
+    addBtn.innerText = 'إضافة المهمة';
+    cancelEditBtn.hidden = true;
+  }
+
+  // form submit
+  taskForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = titleEl.value.trim();
+    if (!title) return alert('الرجاء إدخال عنوان المهمة.');
+    const description = descEl.value.trim();
+    const due = parseDateTime(dueEl.value, timeEl.value);
+    const priority = priorityEl.value;
+    const tags = tagsEl.value;
+
+    if (editingId) {
+      const t = tasks.find(x => x.id === editingId);
+      if (!t) return;
+      t.title = title;
+      t.description = description;
+      t.due = due ? due.toISOString() : null;
+      t.priority = priority;
+      t.tags = tags;
+      t.updatedAt = Date.now();
+    } else {
+      const newTask = {
+        id: uid(),
+        title,
+        description,
+        due: due ? due.toISOString() : null,
+        priority,
+        tags,
+        completed: false,
+        createdAt: Date.now()
+      };
+      tasks.unshift(newTask);
+    }
+    save();
+    resetForm();
+    render();
+    scheduleNotifications();
+  });
+
+  cancelEditBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    resetForm();
+  });
+
+  // bulk actions
+  markAllBtn.addEventListener('click', () => {
+    if (!confirm('وضع كل المهام كمنجزة؟')) return;
+    tasks.forEach(t => t.completed = true);
+    save();
+    render();
+  });
+
+  clearCompletedBtn.addEventListener('click', () => {
+    if (!confirm('حذف جميع المهام المنجزة؟')) return;
+    tasks = tasks.filter(t => !t.completed);
+    save();
+    render();
+  });
+
+  // export / import
+  exportBtn.addEventListener('click', () => {
+    const data = JSON.stringify({ exportedAt: new Date().toISOString(), tasks }, null, 2);
+    const blob = new Blob([data], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tasks-backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  importFile.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    if (!confirm('استيراد الملف سيضيف أو يدمج المهام؛ هل تريد المتابعة؟')) return;
+    try {
+      const txt = await f.text();
+      const parsed = JSON.parse(txt);
+      const imported = Array.isArray(parsed.tasks) ? parsed.tasks : (Array.isArray(parsed) ? parsed : []);
+      // merge by id - avoid duplicates
+      const existingIds = new Set(tasks.map(t=>t.id));
+      for (const it of imported) {
+        if (!it.id || existingIds.has(it.id)) {
+          // assign new id
+          it.id = uid();
+        }
+        tasks.push(it);
+      }
+      save();
+      render();
+      alert('تم الاستيراد.');
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء الاستيراد.');
+    } finally {
+      importFile.value = '';
+    }
+  });
+
+  // search / filter / sort events
+  searchInput.addEventListener('input', () => render());
+  filterSelect.addEventListener('change', () => render());
+  sortSelect.addEventListener('change', () => render());
+
+  // notifications
+  function requestNotificationPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }
+
+  // schedule simple reminders for tasks with due dates (only while page open)
+  function scheduleNotifications() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    // clear existing timeouts by reloading (we won't store them); simple approach: check all tasks and notify if due within 1 minute
+    const now = Date.now();
+    tasks.forEach(t => {
+      if (t.due && !t.completed) {
+        const dueTs = new Date(t.due).getTime();
+        const ms = dueTs - now;
+        if (ms <= 0 && ms > -60*60*1000) {
+          // overdue recently
+          new Notification('مهمة متأخرة', { body: t.title });
+        } else if (ms > 0 && ms < 60*60*1000) {
+          // schedule near-future within hour
+          setTimeout(() => {
+            new Notification('تذكير مهمة', { body: t.title });
+          }, Math.max(0, ms));
+        }
+      }
+    });
+  }
+
+  // initial load
+  load();
+  render();
+  requestNotificationPermission();
+  scheduleNotifications();
+
+  // keyboard shortcut: n -> focus new task title
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      titleEl.focus();
+    }
+  });
+
+  // expose for debugging
+  window.__tasksApp = {
+    addSample: () => {
+      tasks.push({ id: uid(), title: 'مهمة تجريبية', description: 'وصف', due: null, priority: 'high', tags: 'اختبار', completed: false, createdAt: Date.now() });
+      save(); render();
+    },
+    get tasks() { return tasks; }
+  };
+
+})();
