@@ -1,125 +1,119 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>نظام متابعة الأعمال</title>
-
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>نظام متابعة الأعمال</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <header>
+    <h1>📋 نظام متابعة الأعمال</h1>
+    <p>متابعة الأعمال والمهام والإنجازات</p>
+  </header>
 
-    <header>
-        <h1>📋 نظام متابعة الأعمال</h1>
-        <p>متابعة الأعمال والمهام والإنجازات</p>
-    </header>
+  <main>
+    <!-- إضافة / تحرير مهمة -->
+    <section class="card" aria-labelledby="addTaskHeading">
+      <h2 id="addTaskHeading">إضافة عمل جديد</h2>
 
-    <main>
+      <form id="taskForm" aria-describedby="formHelp">
+        <div class="row">
+          <input type="text" id="taskTitle" name="title" placeholder="عنوان المهمة *" required />
+          <select id="taskPriority" name="priority" aria-label="الأولوية">
+            <option value="medium">متوسط</option>
+            <option value="high">عالي</option>
+            <option value="low">منخفض</option>
+          </select>
+        </div>
 
-        <!-- إضافة مهمة -->
-        <section class="card">
+        <div class="row">
+          <textarea id="taskDesc" name="description" placeholder="وصف مختصر (اختياري)" rows="2"></textarea>
+        </div>
 
-            <h2>إضافة عمل جديد</h2>
+        <div class="row">
+          <input type="date" id="taskDue" name="due" />
+          <input type="time" id="taskTime" name="time" />
+          <input type="text" id="taskTags" name="tags" placeholder="وسوم مفصولة بفاصلة" />
+        </div>
 
-            <input
-                type="text"
-                id="taskInput"
-                placeholder="اكتب اسم العمل أو المهمة"
-            >
+        <div class="row controls">
+          <button type="submit" id="addTaskBtn">إضافة المهمة</button>
+          <button type="button" id="cancelEditBtn" class="secondary" hidden>إلغاء</button>
+          <button type="button" id="exportBtn" class="small">تصدير JSON</button>
+          <label for="importFile" class="import-label small">استيراد</label>
+          <input id="importFile" type="file" accept="application/json" style="display:none" />
+        </div>
 
-            <button id="addTaskBtn">
-                إضافة العمل
-            </button>
+        <p id="formHelp" class="muted">يمكنك إضافة تاريخ استحقاق ووقت ووسوم. الحقول الإلزامية: العنوان.</p>
+      </form>
+    </section>
 
-        </section>
+    <!-- أدوات -->
+    <section class="card">
+      <h2>أدوات</h2>
+      <div class="row" style="gap:8px;flex-wrap:wrap;">
+        <input id="searchInput" type="search" placeholder="ابحث عن مهمة..." aria-label="بحث" />
+        <label for="filterSelect">حالة:</label>
+        <select id="filterSelect">
+          <option value="all">الكل</option>
+          <option value="pending">قيد التنفيذ</option>
+          <option value="completed">منجزة</option>
+          <option value="overdue">متأخرة</option>
+        </select>
 
+        <label for="sortSelect">ترتيب:</label>
+        <select id="sortSelect">
+          <option value="date_desc">الأحدث أولاً</option>
+          <option value="date_asc">الأقدم أولاً</option>
+          <option value="name_asc">اسم (أ-ي)</option>
+          <option value="name_desc">اسم (ي-أ)</option>
+          <option value="priority_desc">الأولوية</option>
+        </select>
 
-        <!-- أدوات متقدمة: بحث، تصفية، ترتيب، تصدير/استيراد -->
-        <section class="card">
-            <h2>أدوات</h2>
+        <button id="markAllBtn" class="small">وضع كل المهام كمنجزة</button>
+        <button id="clearCompletedBtn" class="small danger">مسح المنجزة</button>
+      </div>
+      <p class="muted">نصيحة: استخدم التصدير لعمل نسخة احتياطية أو النقل إلى جهاز آخر.</p>
+    </section>
 
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                <input id="searchInput" type="search" placeholder="ابحث عن مهمة..." aria-label="بحث">
+    <!-- إحصائيات -->
+    <section class="stats" aria-live="polite">
+      <div class="stat">
+        <h3 id="totalTasks">0</h3>
+        <p>إجمالي الأعمال</p>
+      </div>
+      <div class="stat">
+        <h3 id="completedTasks">0</h3>
+        <p>الأعمال المنجزة</p>
+      </div>
+      <div class="stat">
+        <h3 id="pendingTasks">0</h3>
+        <p>الأعمال المتبقية</p>
+      </div>
+    </section>
 
-                <label for="filterSelect">حالة:</label>
-                <select id="filterSelect">
-                    <option value="all">الكل</option>
-                    <option value="pending">قيد التنفيذ</option>
-                    <option value="completed">منجزة</option>
-                </select>
+    <!-- نسبة الإنجاز -->
+    <section class="card">
+      <h2>نسبة الإنجاز</h2>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="progressBar"></div>
+      </div>
+      <p id="progressText">0%</p>
+    </section>
 
-                <label for="sortSelect">ترتيب:</label>
-                <select id="sortSelect">
-                    <option value="date_desc">الأحدث أولاً</option>
-                    <option value="date_asc">الأقدم أولاً</option>
-                    <option value="name_asc">اسم (أ-ي)</option>
-                    <option value="name_desc">اسم (ي-أ)</option>
-                </select>
+    <!-- قائمة الأعمال -->
+    <section class="card">
+      <h2>الأعمال والمهام</h2>
+      <div id="taskList" aria-live="polite"></div>
+      <p id="emptyHint" class="empty">لا توجد مهام بعد — أضف أول مهمة!</p>
+    </section>
+  </main>
 
-                <button id="markAllBtn">وضع كل المهام كمنجزة</button>
-                <button id="clearCompletedBtn">مسح المنجزة</button>
-                <button id="exportBtn">تصدير JSON</button>
-                <label class="import-label" for="importFile">استيراد</label>
-                <input id="importFile" type="file" accept="application/json" style="display:none">
-            </div>
+  <footer>
+    <p>نظام متابعة الأعمال © 2026</p>
+  </footer>
 
-            <p style="margin-top:10px;color:#555;font-size:14px">نصيحة: استخدم التصدير لعمل نسخة احتياطية أو النقل إلى جهاز آخر.</p>
-        </section>
-
-
-        <!-- الإحصائيات -->
-        <section class="stats">
-
-            <div class="stat">
-                <h3 id="totalTasks">0</h3>
-                <p>إجمالي الأعمال</p>
-            </div>
-
-            <div class="stat">
-                <h3 id="completedTasks">0</h3>
-                <p>الأعمال المنجزة</p>
-            </div>
-
-            <div class="stat">
-                <h3 id="pendingTasks">0</h3>
-                <p>الأعمال المتبقية</p>
-            </div>
-
-        </section>
-
-
-        <!-- نسبة الإنجاز -->
-        <section class="card">
-
-            <h2>نسبة الإنجاز</h2>
-
-            <div class="progress">
-                <div id="progressBar"></div>
-            </div>
-
-            <p id="progressText">0%</p>
-
-        </section>
-
-
-        <!-- قائمة الأعمال -->
-        <section class="card">
-
-            <h2>الأعمال والمهام</h2>
-
-            <div id="taskList"></div>
-
-        </section>
-
-    </main>
-
-
-    <footer>
-        <p>نظام متابعة الأعمال © 2026</p>
-    </footer>
-
-    <script src="script.js"></script>
-
+  <script src="script.js" defer></script>
 </body>
 </html>
